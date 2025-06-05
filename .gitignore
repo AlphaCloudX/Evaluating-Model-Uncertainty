@@ -1,0 +1,19 @@
+# Ignore specific folders at the root level or anywhere in the repo
+ExtraFiles/
+papers/
+PyTorchBayesCNN/
+
+# Ignore any folder named .venv anywhere
+.venv/
+
+# Ignore any folder named .idea anywhere
+.idea/
+
+# Ignore any __pycache__ folders anywhere
+__pycache__/
+
+# Ignore .h5 files since they are too large
+*.h5
+
+# Ignore .png files since maybe they are too large too?
+*.png
