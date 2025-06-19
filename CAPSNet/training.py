@@ -177,6 +177,8 @@ def train(
         metrics=["accuracy"],
     )
 
+    model.summary()
+
     # Define a callback to reduce learning rate
     # === Define callbacks ===
     early_stop = callbacks.EarlyStopping(
