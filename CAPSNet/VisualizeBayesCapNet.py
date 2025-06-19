@@ -279,12 +279,29 @@ for i in range(5):
 # Prepare input image (28x28 grayscale)
 input_img = example_img[0, :, :, 0]
 
-# Function to resize mask to 28x28 (input size)
-def resize_mask(mask, new_shape=(28,28)):
+# Resize function
+def resize_mask(mask, new_shape=(28, 28)):
     zoom_factors = (new_shape[0] / mask.shape[0], new_shape[1] / mask.shape[1])
     return zoom(mask, zoom_factors, order=1)
 
-# Plotting: 5 rows (MC runs), 11 columns (input + classes 0-9)
+# --- Step 1: Precompute all resized masks and get global min/max ---
+all_resized_masks = []
+
+for row in range(5):
+    for class_idx in range(10):
+        mask = all_paths_averages[row][:, :, class_idx]
+        mask_resized = resize_mask(mask, new_shape=input_img.shape)
+        all_resized_masks.append(mask_resized)
+
+all_resized_masks = np.stack(all_resized_masks)  # shape: (50, H, W)
+global_min = np.min(all_resized_masks)
+global_max = np.max(all_resized_masks)
+
+# Optional: Use percentiles to avoid extreme outliers
+# global_min = np.percentile(all_resized_masks, 1)
+# global_max = np.percentile(all_resized_masks, 99)
+
+# --- Step 2: Plotting ---
 fig, axes = plt.subplots(5, 11, figsize=(22, 10))
 fig.suptitle('RPV Routing Masks - Monte Carlo Runs', fontsize=16)
 
@@ -294,7 +311,6 @@ for row in range(5):
         ax.axis('off')
 
         if col == 0:
-            # First column: input image repeated on every row
             ax.imshow(input_img, cmap='gray')
             if row == 0:
                 ax.set_title("Input Image")
@@ -302,24 +318,30 @@ for row in range(5):
             class_idx = col - 1
             mask = all_paths_averages[row][:, :, class_idx]
             mask_resized = resize_mask(mask, new_shape=input_img.shape)
-            mask_norm = (mask_resized - mask_resized.min()) / (mask_resized.max() - mask_resized.min() + 1e-6)
+
+            mask_norm = (mask_resized - global_min) / (global_max - global_min + 1e-6)
+            avg_val = np.mean(mask_resized)
+
+            # Apply threshold to suppress low-activation areas
+            threshold = 0.2
+            mask_display = np.where(mask_norm >= threshold, mask_norm, np.nan)
 
             ax.imshow(input_img, cmap='gray')
-            ax.imshow(mask_norm, cmap='jet', alpha=0.5)
+            ax.imshow(mask_display, cmap='jet', alpha=0.5, vmin=0.0, vmax=1.0)
 
             if row == 0:
                 ax.set_title(f'Class {class_idx}', pad=25)
 
-            # Add class probability text above the mask for each run and class
-            prob = vec_len_outputs[row].numpy()[0, class_idx]  # get prob scalar
+            prob = vec_len_outputs[row].numpy()[0, class_idx]
             ax.text(
-                0.5, 1.05,  # x=middle, y=just above axes
-                f"{prob:.3f}",
+                0.5, 1.05,
+                f"P:{prob:.3f} / Avg:{avg_val:.5f}",
                 color='black',
-                fontsize=8,
+                fontsize=7,
                 ha='center',
                 transform=ax.transAxes,
                 bbox=dict(facecolor='white', alpha=0.7, edgecolor='none', pad=1)
             )
 
+plt.tight_layout(rect=[0, 0, 1, 0.96])  # Leave space for suptitle
 plt.show()
